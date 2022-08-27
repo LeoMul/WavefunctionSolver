@@ -67,6 +67,55 @@ contains
         end do
     end subroutine numerov_whole_interval
 
+    function numerov_next_step_s_is_zero(g_func_ptr,h,xcurrent,ycurrent,yprev)
+        implicit none
+        real*8 :: numerov_next_step_s_is_zero
+        real*8 :: factor
+        real*8 :: hsquared_over_twelve
+        real*8, intent (in) :: h,xcurrent,ycurrent,yprev
+        procedure(pointing_func),pointer::g_func_ptr
+        hsquared_over_twelve = h*h/12.0
+        factor = (1+hsquared_over_twelve*g_func_ptr(xcurrent+h))
+        numerov_next_step_s_is_zero = 2*ycurrent*(1-5*hsquared_over_twelve*g_func_ptr(xcurrent))
+        numerov_next_step_s_is_zero = numerov_next_step_s_is_zero -yprev *(1+hsquared_over_twelve*g_func_ptr(xcurrent-h))
+        numerov_next_step_s_is_zero = numerov_next_step_s_is_zero/factor
+    end function numerov_next_step
+
+    function numerov_next_step_g_s_pre_calculated_s_is_zero(h,ycurrent,yprev,gnext,gcurrent,gprev)
+        real*8, intent (in) ::h,ycurrent,yprev,gnext,gcurrent,gprev
+        real*8 :: hsquared_over_twelve,factor,numerov_next_step_g_s_pre_calculated_s_is_zero
+        hsquared_over_twelve = h*h/12.0
+        factor = (1.0+hsquared_over_twelve*gnext)
+        numerov_next_step_g_s_pre_calculated_s_is_zero = 2.0*ycurrent*(1.0-5.0*hsquared_over_twelve*gcurrent)
+        numerov_next_step_g_s_pre_calculated_s_is_zero = numerov_next_step_g_s_pre_calculated_s_is_zero -yprev *(1.0+hsquared_over_twelve*gprev)
+        numerov_next_step_g_s_pre_calculated_s_is_zero = numerov_next_step_g_s_pre_calculated_s_is_zero/factor
+    end function numerov_next_step_g_pre_calculated_s_is_zero_s_is_zero
+
+    subroutine numerov_whole_interval_s_is_zero(n,x_0,x_1,y_0,y_1,g_func_ptr,x_array,y_array)
+
+        real*8, intent (in) :: x_0,x_1,y_0,y_1
+        integer, intent(in) :: n
+        procedure(pointing_func),pointer::g_func_ptr
+        real*8::g_array(n)
+        real*8,intent(inout):: x_array(n), y_array(n)
+        real*8::h
+        integer::i
+
+        h = x_1-x_0
+
+        do i = 1,n 
+            x_array(i) = x_0 + (i-1)*h 
+            g_array(i) = g_func_ptr(x_array(i))
+        end do
+
+        y_array(1) = y_0
+        y_array(2) = y_1
+
+        do i = 2,n-1
+            y_array(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(h,y_array(i),y_array(i-1),g_array(i+1),g_array(i),g_array(i-1))
+        end do
+    end subroutine numerov_whole_interval
+
 end module numerov
 
 module functions_storage
