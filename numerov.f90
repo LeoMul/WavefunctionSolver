@@ -3,7 +3,7 @@ module numerov
     implicit none
 
     private 
-    public numerov_next_step,pointing_func,numerov_whole_interval
+    public numerov_next_step,pointing_func,numerov_whole_interval,numerov_whole_interval_schrodinger
 
     abstract interface 
         function pointing_func(x)
@@ -79,7 +79,7 @@ contains
         numerov_next_step_s_is_zero = 2*ycurrent*(1-5*hsquared_over_twelve*g_func_ptr(xcurrent))
         numerov_next_step_s_is_zero = numerov_next_step_s_is_zero -yprev *(1+hsquared_over_twelve*g_func_ptr(xcurrent-h))
         numerov_next_step_s_is_zero = numerov_next_step_s_is_zero/factor
-    end function numerov_next_step
+    end function numerov_next_step_s_is_zero
 
     function numerov_next_step_g_s_pre_calculated_s_is_zero(h,ycurrent,yprev,gnext,gcurrent,gprev)
         real*8, intent (in) ::h,ycurrent,yprev,gnext,gcurrent,gprev
@@ -89,7 +89,7 @@ contains
         numerov_next_step_g_s_pre_calculated_s_is_zero = 2.0*ycurrent*(1.0-5.0*hsquared_over_twelve*gcurrent)
         numerov_next_step_g_s_pre_calculated_s_is_zero = numerov_next_step_g_s_pre_calculated_s_is_zero -yprev *(1.0+hsquared_over_twelve*gprev)
         numerov_next_step_g_s_pre_calculated_s_is_zero = numerov_next_step_g_s_pre_calculated_s_is_zero/factor
-    end function numerov_next_step_g_pre_calculated_s_is_zero_s_is_zero
+    end function numerov_next_step_g_s_pre_calculated_s_is_zero
 
     subroutine numerov_whole_interval_s_is_zero(n,x_0,x_1,y_0,y_1,g_func_ptr,x_array,y_array)
 
@@ -114,8 +114,32 @@ contains
         do i = 2,n-1
             y_array(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(h,y_array(i),y_array(i-1),g_array(i+1),g_array(i),g_array(i-1))
         end do
-    end subroutine numerov_whole_interval
+    end subroutine numerov_whole_interval_s_is_zero
 
+    subroutine numerov_whole_interval_schrodinger(n,x_0,x_1,y_0,y_1,E,V_func_ptr,x_array,y_array)
+
+        real*8, intent (in) :: x_0,x_1,y_0,y_1,E
+        integer, intent(in) :: n
+        procedure(pointing_func),pointer::V_func_ptr
+        real*8::g_array(n)
+        real*8,intent(inout):: x_array(n), y_array(n)
+        real*8::h
+        integer::i
+
+        h = x_1-x_0
+
+        do i = 1,n 
+            x_array(i) = x_0 + (i-1)*h 
+            g_array(i) = E-V_func_ptr(x_array(i))
+        end do
+
+        y_array(1) = y_0
+        y_array(2) = y_1
+
+        do i = 2,n-1
+            y_array(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(h,y_array(i),y_array(i-1),g_array(i+1),g_array(i),g_array(i-1))
+        end do
+    end subroutine numerov_whole_interval_schrodinger
 end module numerov
 
 module functions_storage
@@ -139,44 +163,44 @@ end module functions_storage
 
 
 
-program test_numerov
-    use numerov
-    use functions_storage
-    implicit none
-    real*8::x0,x1,h,y0,y1
-    integer::n
-    real*8,dimension(:),allocatable :: x_array
-    real*8,dimension(:),allocatable :: y_array
-    character(len=*), parameter :: OUT_FILE = 'numerovdata.dat' ! Output file.
-    character(len=*), parameter :: PLT_FILE = 'plot.plt' ! Gnuplot file.
-    integer::i
-
-    
-    procedure (pointing_func),pointer:: g_ptr => constant_func
-    procedure (pointing_func),pointer:: s_ptr => zero_func
-    
-    
-    n = 100000
-    allocate(x_array(n))
-    allocate(y_array(n))
-    !initial conditions and setting x 
-    y0 = 1.0
-    y1 = 0.999999995
-    x0 = 0.0
-    x1 = 0.0001
-    h = x1-x0
-    call numerov_whole_interval(n,x0,x1,y0,y1,g_ptr,s_ptr,x_array,y_array)
-
-    open (1, file = "numerovdata.dat")
-    do i = 1,size(x_array)
-        write(1,*) x_array(i), y_array(i)
-    end do 
-    close(1)
-
-    call execute_command_line('gnuplot -p ' // PLT_FILE)
-
-    deallocate (x_array)
-    deallocate (y_array)
-
-end program test_numerov
-
+!program test_numerov
+!    use numerov
+!    use functions_storage
+!    implicit none
+!    real*8::x0,x1,h,y0,y1
+!    integer::n
+!    real*8,dimension(:),allocatable :: x_array
+!    real*8,dimension(:),allocatable :: y_array
+!    character(len=*), parameter :: OUT_FILE = 'numerovdata.dat' ! Output file.
+!    character(len=*), parameter :: PLT_FILE = 'plot.plt' ! Gnuplot file.
+!    integer::i
+!
+!    
+!    procedure (pointing_func),pointer:: g_ptr => constant_func
+!    procedure (pointing_func),pointer:: s_ptr => zero_func
+!    
+!    
+!    n = 100000
+!    allocate(x_array(n))
+!    allocate(y_array(n))
+!    !initial conditions and setting x 
+!    y0 = 1.0
+!    y1 = 0.999999995
+!    x0 = 0.0
+!    x1 = 0.0001
+!    h = x1-x0
+!    call numerov_whole_interval(n,x0,x1,y0,y1,g_ptr,s_ptr,x_array,y_array)
+!
+!    open (1, file = "numerovdata.dat")
+!    do i = 1,size(x_array)
+!        write(1,*) x_array(i), y_array(i)
+!    end do 
+!    close(1)
+!
+!    call execute_command_line('gnuplot -p ' // PLT_FILE)
+!
+!    deallocate (x_array)
+!    deallocate (y_array)
+!
+!end program test_numerov
+!
