@@ -1,0 +1,2 @@
+gfortran -c solver.f90 numerov.f90 -ffree-line-length-none
+gfortran numerov.f90 solver.f90 -ffree-line-length-none
