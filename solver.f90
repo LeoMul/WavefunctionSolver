@@ -66,13 +66,14 @@ contains
         real*8,intent(in)::x0,x1,x_final,psi_0,psi_1,E
         integer,intent(in)::N
         real*8,intent(inout)::x_array(N),psi_array(N)
-        real*8::h
+        real*8::h,potential_array(N)
 
         procedure (pointing_func),pointer:: V_ptr
 
         h = x1-x0
+        potential_array = create_potential_array(V_ptr,x_array)
         !N = (x_final-x0)/h
-        call numerov_whole_interval_schrodinger(N,x0,x1,psi_0,psi_1,E,V_ptr,x_array,psi_array)
+        psi_array = numerov_whole_interval_schrodinger(x_array,h,psi_0,psi_1,potential_array,E)
 
 
     end subroutine produce_trial_solution

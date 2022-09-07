@@ -81,10 +81,10 @@ contains
         numerov_next_step_s_is_zero = numerov_next_step_s_is_zero/factor
     end function numerov_next_step_s_is_zero
 
-    function numerov_next_step_g_s_pre_calculated_s_is_zero(h,ycurrent,yprev,gnext,gcurrent,gprev)
-        real*8, intent (in) ::h,ycurrent,yprev,gnext,gcurrent,gprev
-        real*8 :: hsquared_over_twelve,factor,numerov_next_step_g_s_pre_calculated_s_is_zero
-        hsquared_over_twelve = h*h/12.0
+    function numerov_next_step_g_s_pre_calculated_s_is_zero(hsquared_over_twelve,ycurrent,yprev,gnext,gcurrent,gprev)
+        real*8, intent (in) ::hsquared_over_twelve,ycurrent,yprev,gnext,gcurrent,gprev
+        real*8 :: factor,numerov_next_step_g_s_pre_calculated_s_is_zero
+        !hsquared_over_twelve = h*h/12.0
         factor = (1.0+hsquared_over_twelve*gnext)
         numerov_next_step_g_s_pre_calculated_s_is_zero = 2.0*ycurrent*(1.0-5.0*hsquared_over_twelve*gcurrent)
         numerov_next_step_g_s_pre_calculated_s_is_zero = numerov_next_step_g_s_pre_calculated_s_is_zero -yprev *(1.0+hsquared_over_twelve*gprev)
@@ -112,34 +112,27 @@ contains
         y_array(2) = y_1
 
         do i = 2,n-1
-            y_array(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(h,y_array(i),y_array(i-1),g_array(i+1),g_array(i),g_array(i-1))
+            y_array(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(h*h/12,y_array(i),y_array(i-1),g_array(i+1),g_array(i),g_array(i-1))
         end do
     end subroutine numerov_whole_interval_s_is_zero
-
-    subroutine numerov_whole_interval_schrodinger(n,x_0,x_1,y_0,y_1,E,V_func_ptr,x_array,y_array)
-
-        real*8, intent (in) :: x_0,x_1,y_0,y_1,E
-        integer, intent(in) :: n
-        procedure(pointing_func),pointer::V_func_ptr
-        real*8::g_array(n)
-        real*8,intent(inout):: x_array(n), y_array(n)
-        real*8::h
-        integer::i
-
-        h = x_1-x_0
-
-        do i = 1,n 
-            x_array(i) = x_0 + (i-1)*h 
-            g_array(i) = E-V_func_ptr(x_array(i))
-        end do
-
-        y_array(1) = y_0
-        y_array(2) = y_1
-
+    
+    function numerov_whole_interval_schrodinger(x_array,h,y_0,y_1,potential_array,E)
+        real*8, intent(in) :: x_array(:),potential_array(:),E,h,y_0,y_1
+        real*8:: numerov_whole_interval_schrodinger(size(x_array)),energy_minus_potential_array(size(potential_array)),hsquared_over_twelve
+        integer::n,i
+        
+        n = size(x_array)
+        numerov_whole_interval_schrodinger(1) = y_0
+        numerov_whole_interval_schrodinger(2) = y_1
+        energy_minus_potential_array = E - potential_array
+        hsquared_over_twelve = h*h/12
         do i = 2,n-1
-            y_array(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(h,y_array(i),y_array(i-1),g_array(i+1),g_array(i),g_array(i-1))
+            numerov_whole_interval_schrodinger(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(hsquared_over_twelve,numerov_whole_interval_schrodinger(i),numerov_whole_interval_schrodinger(i-1),energy_minus_potential_array(i+1),energy_minus_potential_array(i),energy_minus_potential_array(i-1))
         end do
-    end subroutine numerov_whole_interval_schrodinger
+
+    end function numerov_whole_interval_schrodinger
+
+
 end module numerov
 
 module functions_storage
