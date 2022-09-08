@@ -3,7 +3,7 @@ module schrodinger_solution_mod
     use numerov
     implicit none 
     private 
-    public produce_trial_solution,lennard_jones_potential,zero_potential,normalise_wave_function,create_potential_array,energy_minus_potential_array,effective_hydrogen_potential
+    public produce_trial_solution,lennard_jones_potential,zero_potential,normalise_wave_function,create_potential_array,energy_minus_potential_array,effective_hydrogen_potential,find_bracketing_pair
 contains
 
 
@@ -73,7 +73,7 @@ contains
         h = x1-x0
         potential_array = create_potential_array(V_ptr,x_array)
         !N = (x_final-x0)/h
-        psi_array = numerov_whole_interval_schrodinger(x_array,h,psi_0,psi_1,potential_array,E)
+        psi_array = numerov_whole_interval_schrodinger(x_array,psi_0,psi_1,potential_array,E)
 
 
     end subroutine produce_trial_solution
@@ -102,31 +102,57 @@ contains
         real*8::norm_factor
         integer::i
         psi_sq = psi_array*psi_array
-
-        !print*, size(psi_array)
         norm_factor = integrate_trapezium(h,psi_sq)
         do i = 1,size(psi_array)
-            !print*, psi_sq(i)
             psi_array(i) = psi_array(i)/norm_factor
         end do
-
-
     end subroutine normalise_wave_function
 
-    function find_bracketing_pair(Estart,deltaE,psi_right_boundary,N)
+    function my_linspace(x_0,x_last,N)
+        real*8, intent(in)::x_0,x_last
+        integer::N,i
+        real*8::h
+        real*8::my_linspace(N)
+
+        h = (x_last-x_0)/(N-1)
+
+        do i = 1,N
+            my_linspace(i) = x_0 + (i-1)*h
+            !print*, "hello"
+        end do
+
+    end function my_linspace
+
+    function find_bracketing_pair(Estart,deltaE,psi_left_boundary,psi_right_boundary,N,x_0,x_last,V_ptr)
         !future: make this find bracketing pairs which returns a list of tuples?
-        real*8, intent(in)::Estart,deltaE,psi_right_boundary
+        real*8, intent(in)::Estart,deltaE,psi_left_boundary,psi_right_boundary,x_0,x_last
         integer, intent(in)::N
         integer::i,max_E_iter
-        real*8::psi_array(N)
+        real*8::psi_array(N),x_array(N),potential_array(N),h
         real*8::currentE,previousE,currentDelta,previousDelta
         real*8::find_bracketing_pair
+        real*8::psi_1,PI_squared
+        procedure (pointing_func),pointer:: V_ptr
+        PI_squared = 9.86960440108935861883449
+        psi_1 = 0.1
         currentE = Estart
+        x_array = my_linspace(x_0,x_last,N)
+
+        !do i =1,N
+        !    print*, x_array(i)
+        !end do
+        h = x_array(2)-x_array(1)
+        potential_array = create_potential_array(V_ptr,x_array)
+        max_E_iter = 1000000
+
         do i = 1,max_E_iter
-
-
-            currentE = currentE + (i-1)*deltaE 
+            currentE = currentE + deltaE 
+            psi_array = numerov_whole_interval_schrodinger(x_array,psi_left_boundary,psi_1,potential_array,currentE)
+            
+            call normalise_wave_function(psi_array,h)
+            print*, 'current E units of pi^2/2: ', 2*currentE/PI_squared,' psi at boundary', psi_array(size(psi_array))
         end do 
+
         find_bracketing_pair = currentE
 
 
@@ -150,51 +176,28 @@ program run_solver
     implicit none
     character(len=*), parameter :: OUT_FILE = 'solutiondata.dat' ! Output file.
     character(len=*), parameter :: PLT_FILE = 'plot.plt' ! Gnuplot file.
-    real*8::x0,x1,h,y0,y1
-    real*8:: x_final,E
-    integer::n,i,quantum_number
-    real*8,dimension(:),allocatable :: x_array
-    real*8,dimension(:),allocatable :: y_array
-    real*8,dimension(:),allocatable :: normed_y_array
+    real*8::x0,y_left,y_right
+    real*8:: x_final,E,deltaE
+    integer::N,i,quantum_number
+    !real*8,dimension(:),allocatable :: x_array
     
-    real*8::pi,pi_squared,root2
-    procedure (pointing_func),pointer:: V_ptr => effective_hydrogen_potential
+    procedure (pointing_func),pointer:: V_ptr => zero_potential
 
-    pi = 4.D0*DATAN(1.D0)
-    pi_squared = pi**2
-    root2 = 2**0.5
+    N = 10000
+    !allocate(x_array(N))
+    
+    y_left = 0.0
+    y_right = 0.0
     x0 = 0.0
-    x_final = 2.5
-    x1 = 0.01
-    quantum_number = 3
-    h = x1-x0
-    n = (x_final-x0)/h
-    E = 10
+    x_final = 1.0
+    E = 0.0
+    deltaE = 0.0001
 
+    E = find_bracketing_pair(E,deltaE,y_left,y_right,N,x0,x_final,V_ptr)
 
-    allocate(x_array(n))
-    allocate(y_array(n))
-    allocate(normed_y_array(n))
+    !call execute_command_line('gnuplot -p ' // PLT_FILE)
 
-    do i = 1,size(x_array)
-        x_array(i) = x0 + (i-1)*h
-        !print *, x_array(i)
-        !y_array(i) = root2 * sin(pi*quantum_number*x_array(i))
-        !normed_y_array(i) = y_array(i)
-    end do
-    y_array = create_potential_array(V_ptr,x_array)
-    y_array = energy_minus_potential_array(E,y_array)
-    open (1, file = "solutiondata.dat", action="write")
-        do i = 1,size(x_array)
-            write(1,*) x_array(i), y_array(i)!,normed_y_array(i)
-        end do 
-    close(1)
-!
-    call execute_command_line('gnuplot -p ' // PLT_FILE)
-
-    deallocate(x_array)
-    deallocate(y_array)
-    deallocate(normed_y_array)
+    !deallocate(x_array)
 
 end program run_solver
 
