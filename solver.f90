@@ -33,7 +33,7 @@ contains
         real*16, intent(in) :: r
         integer::l
         real*16 :: V
-        l = 1
+        l = 0
         V = -1.0/r + 0.5*l*(l+1)/r**2
     end function effective_hydrogen_potential
 
@@ -102,7 +102,8 @@ contains
         real*16::norm_factor
         integer::i
         psi_sq = psi_array*psi_array
-        norm_factor = integrate_trapezium(h,psi_sq)
+        norm_factor = SQRT(integrate_trapezium(h,psi_sq))
+        !print*, "integral ", norm_factor
         do i = 1,size(psi_array)
             psi_array(i) = psi_array(i)/norm_factor
         end do
@@ -179,11 +180,13 @@ contains
         real*16,intent(inout)::a,b
         real*16,intent(in)::tol,x_array(:),V_array(:),psi_0,psi_1,psi_right
         integer,intent(in)::max_iter
-        real*16::find_eigenvalue_given_interval,FA,FP,p,psi_array(size(x_array)),h,de
+        real*16::find_eigenvalue_given_interval,FA,FP,FB,p,psi_array(size(x_array)),h,de
         integer::i
 
         h = x_array(2)-x_array(1)
-
+        psi_array = find_trial_solution_normalise(x_array,V_array,b,psi_0,psi_1,h)
+        FB = calculate_delta(psi_array(size(psi_array)),psi_right)
+        !print*, "FB ", FB
         i = 1
         do while (i<max_iter)
 
@@ -199,7 +202,7 @@ contains
             FP = calculate_delta(psi_array(size(psi_array)),psi_right)
             !print*,FP
             !print*,"boundary psi ",psi_array(size(psi_array))
-            print*,"FA AND FP ", FA,FP
+            !print*,"FA AND FP ", FA,FP
 
             if (FP == 0.0 .or. abs(de) < tol) then
                 find_eigenvalue_given_interval = p
@@ -211,9 +214,11 @@ contains
                 return
             else 
                 IF (FA*FP > 0) THEN
+                   ! print*, "changing a"
                     a = p
                     FA = FP
                 ELSE
+                    !print*, "changing b"
                     b = p
                 END IF
             end if
@@ -252,19 +257,19 @@ program run_solver
     integer::N,max_iter,i
     !real*8,dimension(:),allocatable :: x_array
     
-    procedure (pointing_func),pointer:: V_ptr => effective_hydrogen_potential
+    procedure (pointing_func),pointer:: V_ptr => zero_potential
 
-    N = 1000
+    N = 10000
     max_iter = 10000
     allocate(x_array(N),V_array(N))
     
     y_left = 0.0
-    y_1 = 0.000001
+    y_1 = 0.000000000000001
     y_right = 0.0
-    x0 = 0.00000001
-    x_final = 1000.0
-    Ea = -0.12
-    Eb = -0.1
+    x0 = 0.00001
+    x_final = 1.0
+    Ea = 20   
+    Eb = 50
     tol = 0.00000000001
     x_array = my_linspace(x0,x_final,N)
     h = x_array(2)-x_array(1)
@@ -273,13 +278,17 @@ program run_solver
     eigenvalue = find_eigenvalue_given_interval(Ea,Eb,tol,max_iter,x_array,V_array,y_left,y_1,y_right)
     V_array = find_trial_solution_normalise(x_array,V_array,eigenvalue,y_left,y_1,h)
     print*, eigenvalue
-
+    open (1, file = "solutiondata.dat")
+    do i = 1,size(x_array)
+        write(1,*) x_array(i), V_array(i)
+    end do 
+    close(1)
     !do i =1,N
     !    print*, V_array(i)
     !end do
     !E = find_bracketing_pair(E,deltaE,y_left,y_right,N,x0,x_final,V_ptr)
 
-    !call execute_command_line('gnuplot -p ' // PLT_FILE)
+    call execute_command_line('gnuplot -p ' // PLT_FILE)
 
     deallocate(x_array,V_array)
 
