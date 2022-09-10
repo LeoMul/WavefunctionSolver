@@ -7,18 +7,18 @@ module numerov
 
     abstract interface 
         function pointing_func(x)
-            real*8,intent (in)::x
-            real*8::pointing_func
+            real*16,intent (in)::x
+            real*16::pointing_func
         end function pointing_func
     end interface
 
 contains
     function numerov_next_step(g_func_ptr,s_func_ptr,h,xcurrent,ycurrent,yprev)
         implicit none
-        real*8 :: numerov_next_step
-        real*8 :: factor
-        real*8 :: hsquared_over_twelve
-        real*8, intent (in) :: h,xcurrent,ycurrent,yprev
+        real*16 :: numerov_next_step
+        real*16 :: factor
+        real*16 :: hsquared_over_twelve
+        real*16, intent (in) :: h,xcurrent,ycurrent,yprev
         procedure(pointing_func),pointer::g_func_ptr
         procedure(pointing_func),pointer::s_func_ptr
         hsquared_over_twelve = h*h/12.0
@@ -30,8 +30,8 @@ contains
     end function numerov_next_step
 
     function numerov_next_step_g_s_pre_calculated(h,ycurrent,yprev,gnext,gcurrent,gprev,snext,scurrent,sprev)
-        real*8, intent (in) ::h,ycurrent,yprev,gnext,gcurrent,gprev,snext,scurrent,sprev
-        real*8 :: hsquared_over_twelve,factor,numerov_next_step_g_s_pre_calculated
+        real*16, intent (in) ::h,ycurrent,yprev,gnext,gcurrent,gprev,snext,scurrent,sprev
+        real*16 :: hsquared_over_twelve,factor,numerov_next_step_g_s_pre_calculated
         hsquared_over_twelve = h*h/12.0
         factor = (1.0+hsquared_over_twelve*gnext)
         numerov_next_step_g_s_pre_calculated = 2.0*ycurrent*(1.0-5.0*hsquared_over_twelve*gcurrent)
@@ -42,13 +42,13 @@ contains
 
     subroutine numerov_whole_interval(n,x_0,x_1,y_0,y_1,g_func_ptr,s_func_ptr,x_array,y_array)
 
-        real*8, intent (in) :: x_0,x_1,y_0,y_1
+        real*16, intent (in) :: x_0,x_1,y_0,y_1
         integer, intent(in) :: n
         procedure(pointing_func),pointer::g_func_ptr
         procedure(pointing_func),pointer::s_func_ptr
-        real*8::g_array(n),s_array(n)
-        real*8,intent(inout):: x_array(n), y_array(n)
-        real*8::h
+        real*16::g_array(n),s_array(n)
+        real*16,intent(inout):: x_array(n), y_array(n)
+        real*16::h
         integer::i
 
         h = x_1-x_0
@@ -69,10 +69,10 @@ contains
 
     function numerov_next_step_s_is_zero(g_func_ptr,h,xcurrent,ycurrent,yprev)
         implicit none
-        real*8 :: numerov_next_step_s_is_zero
-        real*8 :: factor
-        real*8 :: hsquared_over_twelve
-        real*8, intent (in) :: h,xcurrent,ycurrent,yprev
+        real*16 :: numerov_next_step_s_is_zero
+        real*16 :: factor
+        real*16 :: hsquared_over_twelve
+        real*16, intent (in) :: h,xcurrent,ycurrent,yprev
         procedure(pointing_func),pointer::g_func_ptr
         hsquared_over_twelve = h*h/12.0
         factor = (1+hsquared_over_twelve*g_func_ptr(xcurrent+h))
@@ -82,8 +82,8 @@ contains
     end function numerov_next_step_s_is_zero
 
     function numerov_next_step_g_s_pre_calculated_s_is_zero(hsquared_over_twelve,ycurrent,yprev,gnext,gcurrent,gprev)
-        real*8, intent (in) ::hsquared_over_twelve,ycurrent,yprev,gnext,gcurrent,gprev
-        real*8 :: factor,numerov_next_step_g_s_pre_calculated_s_is_zero
+        real*16, intent (in) ::hsquared_over_twelve,ycurrent,yprev,gnext,gcurrent,gprev
+        real*16 :: factor,numerov_next_step_g_s_pre_calculated_s_is_zero
         !hsquared_over_twelve = h*h/12.0
         factor = (1.0+hsquared_over_twelve*gnext)
         numerov_next_step_g_s_pre_calculated_s_is_zero = 2.0*ycurrent*(1.0-5.0*hsquared_over_twelve*gcurrent)
@@ -93,12 +93,12 @@ contains
 
     subroutine numerov_whole_interval_s_is_zero(n,x_0,x_1,y_0,y_1,g_func_ptr,x_array,y_array)
 
-        real*8, intent (in) :: x_0,x_1,y_0,y_1
+        real*16, intent (in) :: x_0,x_1,y_0,y_1
         integer, intent(in) :: n
         procedure(pointing_func),pointer::g_func_ptr
-        real*8::g_array(n)
-        real*8,intent(inout):: x_array(n), y_array(n)
-        real*8::h
+        real*16::g_array(n)
+        real*16,intent(inout):: x_array(n), y_array(n)
+        real*16::h
         integer::i
 
         h = x_1-x_0
@@ -117,8 +117,8 @@ contains
     end subroutine numerov_whole_interval_s_is_zero
     
     function numerov_whole_interval_schrodinger(x_array,y_0,y_1,potential_array,E)
-        real*8, intent(in) :: x_array(:),potential_array(:),E,y_0,y_1
-        real*8:: numerov_whole_interval_schrodinger(size(x_array)),h,energy_minus_potential_array(size(potential_array)),hsquared_over_twelve
+        real*16, intent(in) :: x_array(:),potential_array(:),E,y_0,y_1
+        real*16:: numerov_whole_interval_schrodinger(size(x_array)),h,energy_minus_potential_array(size(potential_array)),hsquared_over_twelve
         integer::n,i
         h = x_array(2)-x_array(1)
         n = size(x_array)
