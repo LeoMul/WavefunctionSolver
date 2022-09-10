@@ -33,7 +33,7 @@ contains
         real*16, intent(in) :: r
         integer::l
         real*16 :: V
-        l = 0
+        l = 2
         V = -1.0/r + 0.5*l*(l+1)/r**2
     end function effective_hydrogen_potential
 
@@ -73,7 +73,7 @@ contains
         h = x1-x0
         potential_array = create_potential_array(V_ptr,x_array)
         !N = (x_final-x0)/h
-        psi_array = numerov_whole_interval_schrodinger(x_array,psi_0,psi_1,potential_array,E)
+        psi_array = numerov_whole_interval_schrodinger_left_to_right    (x_array,psi_0,psi_1,potential_array,E)
 
 
     end subroutine produce_trial_solution
@@ -109,6 +109,14 @@ contains
         end do
     end subroutine normalise_wave_function
 
+    function assymptotic_solution(x_max,V_of_x_max,E)
+        real*16,intent(in)::x_max,V_of_x_max,E
+        real*16::assymptotic_solution
+        
+        assymptotic_solution = exp(-abs(x_max)*sqrt(2*(V_of_x_max-E)))
+    end function assymptotic_solution
+
+
     function my_linspace(x_0,x_last,N)
         real*16, intent(in)::x_0,x_last
         integer::N,i
@@ -129,7 +137,7 @@ contains
         real*16,intent(in)::x_array(:),V_array(:),E,psi_0,psi_1,h
         real*16::find_trial_solution_normalise(size(x_array))
 
-        find_trial_solution_normalise = numerov_whole_interval_schrodinger(x_array,psi_0,psi_1,V_array,E)
+        find_trial_solution_normalise = numerov_whole_interval_schrodinger_right_to_left(x_array,psi_0,psi_1,V_array,E)
         call normalise_wave_function(find_trial_solution_normalise,h)
         
     end function
@@ -165,7 +173,7 @@ contains
 
         do i = 1,max_E_iter
             currentE = currentE + deltaE 
-            psi_array = numerov_whole_interval_schrodinger(x_array,psi_left_boundary,psi_1,potential_array,currentE)
+            psi_array = numerov_whole_interval_schrodinger_left_to_right(x_array,psi_left_boundary,psi_1,potential_array,currentE)
             
             call normalise_wave_function(psi_array,h)
             print*, 'current E units of pi^2/2: ', 2*currentE/PI_squared,' psi at boundary', psi_array(size(psi_array))
@@ -175,31 +183,43 @@ contains
     
     end function find_bracketing_pair
 
-    function find_eigenvalue_given_interval(a,b,tol,max_iter,x_array,V_array,psi_0,psi_1,psi_right)   
+    function find_eigenvalue_given_interval(a,b,tol,max_iter,x_array,V_array,psi_0,psi_second_most_right,psi_right)   
 
-        real*16,intent(inout)::a,b
-        real*16,intent(in)::tol,x_array(:),V_array(:),psi_0,psi_1,psi_right
+        real*16,intent(inout)::a,b,psi_right,psi_second_most_right
+        real*16,intent(in)::tol,x_array(:),V_array(:),psi_0
         integer,intent(in)::max_iter
         real*16::find_eigenvalue_given_interval,FA,FP,FB,p,psi_array(size(x_array)),h,de
         integer::i
+        real*16::V_of_x_max,V_of_x_max_m1,x_max
+
+        V_of_x_max = V_array(size(V_array))
+        V_of_x_max_m1 = V_array(size(V_array)-1)
+
+        x_max = x_array(size(x_array))
 
         h = x_array(2)-x_array(1)
-        psi_array = find_trial_solution_normalise(x_array,V_array,b,psi_0,psi_1,h)
-        FB = calculate_delta(psi_array(size(psi_array)),psi_right)
+
+        psi_array = find_trial_solution_normalise(x_array,V_array,b,psi_right,psi_second_most_right,h)
+        FB = calculate_delta(psi_array(1),psi_0)
         !print*, "FB ", FB
         i = 1
         do while (i<max_iter)
+            psi_right = assymptotic_solution(x_max,V_of_x_max,a)
+            psi_second_most_right = assymptotic_solution(x_max-h,V_of_x_max_m1,a)
 
-            psi_array = find_trial_solution_normalise(x_array,V_array,a,psi_0,psi_1,h)
-            FA = calculate_delta(psi_array(size(psi_array)),psi_right)
+            psi_array = find_trial_solution_normalise(x_array,V_array,a,psi_0,psi_second_most_right,h)
+            FA = calculate_delta(psi_array(1),psi_0)
 
             !print*,"boundary psi ",psi_array(size(psi_array))
             de = (b-a)/2.0
             !print*,abs(de)
             p = a + de
 
-            psi_array = find_trial_solution_normalise(x_array,V_array,p,psi_0,psi_1,h)
-            FP = calculate_delta(psi_array(size(psi_array)),psi_right)
+            psi_right = assymptotic_solution(x_max,V_of_x_max,p)
+            psi_second_most_right = assymptotic_solution(x_max-h,V_of_x_max_m1,p)
+
+            psi_array = find_trial_solution_normalise(x_array,V_array,p,psi_0,psi_second_most_right,h)
+            FP = calculate_delta(psi_array(1),psi_0)
             !print*,FP
             !print*,"boundary psi ",psi_array(size(psi_array))
             !print*,"FA AND FP ", FA,FP
@@ -257,20 +277,20 @@ program run_solver
     integer::N,max_iter,i
     !real*8,dimension(:),allocatable :: x_array
     
-    procedure (pointing_func),pointer:: V_ptr => zero_potential
+    procedure (pointing_func),pointer:: V_ptr => effective_hydrogen_potential
 
     N = 10000
     max_iter = 10000
     allocate(x_array(N),V_array(N))
     
     y_left = 0.0
-    y_1 = 0.000000000000001
+    y_1 = 0.00001
     y_right = 0.0
     x0 = 0.00001
-    x_final = 1.0
-    Ea = 20   
-    Eb = 50
-    tol = 0.00000000001
+    x_final = 20.0
+    Ea = -0.12   
+    Eb = 0
+    tol = 0.000000000000000001
     x_array = my_linspace(x0,x_final,N)
     h = x_array(2)-x_array(1)
     V_array = create_potential_array(V_ptr,x_array)

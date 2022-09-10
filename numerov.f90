@@ -3,7 +3,7 @@ module numerov
     implicit none
 
     private 
-    public numerov_next_step,pointing_func,numerov_whole_interval,numerov_whole_interval_schrodinger
+    public numerov_next_step,pointing_func,numerov_whole_interval,numerov_whole_interval_schrodinger_left_to_right,numerov_whole_interval_schrodinger_right_to_left
 
     abstract interface 
         function pointing_func(x)
@@ -116,23 +116,39 @@ contains
         end do
     end subroutine numerov_whole_interval_s_is_zero
     
-    function numerov_whole_interval_schrodinger(x_array,y_0,y_1,potential_array,E)
+    function numerov_whole_interval_schrodinger_left_to_right(x_array,y_0,y_1,potential_array,E)
         real*16, intent(in) :: x_array(:),potential_array(:),E,y_0,y_1
-        real*16:: numerov_whole_interval_schrodinger(size(x_array)),h,energy_minus_potential_array(size(potential_array)),hsquared_over_twelve
+        real*16:: numerov_whole_interval_schrodinger_left_to_right(size(x_array)),h,energy_minus_potential_array(size(potential_array)),hsquared_over_twelve
         integer::n,i
         h = x_array(2)-x_array(1)
         n = size(x_array)
-        numerov_whole_interval_schrodinger(1) = y_0
-        numerov_whole_interval_schrodinger(2) = y_1
+        numerov_whole_interval_schrodinger_left_to_right(1) = y_0
+        numerov_whole_interval_schrodinger_left_to_right(2) = y_1
         energy_minus_potential_array = 2*(E - potential_array)
         hsquared_over_twelve = h*h/12
         do i = 2,n-1
-            numerov_whole_interval_schrodinger(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(hsquared_over_twelve,numerov_whole_interval_schrodinger(i),numerov_whole_interval_schrodinger(i-1),energy_minus_potential_array(i+1),energy_minus_potential_array(i),energy_minus_potential_array(i-1))
+            numerov_whole_interval_schrodinger_left_to_right(i+1) = numerov_next_step_g_s_pre_calculated_s_is_zero(hsquared_over_twelve,numerov_whole_interval_schrodinger_left_to_right(i),numerov_whole_interval_schrodinger_left_to_right(i-1),energy_minus_potential_array(i+1),energy_minus_potential_array(i),energy_minus_potential_array(i-1))
             !print*, numerov_whole_interval_schrodinger(i+1)
         end do
 
-    end function numerov_whole_interval_schrodinger
+    end function numerov_whole_interval_schrodinger_left_to_right
 
+    function numerov_whole_interval_schrodinger_right_to_left(x_array,y_right_most,y_second_right_most,potential_array,E)
+        real*16, intent(in) :: x_array(:),potential_array(:),E,y_right_most,y_second_right_most
+        real*16:: numerov_whole_interval_schrodinger_right_to_left(size(x_array)),h,energy_minus_potential_array(size(potential_array)),hsquared_over_twelve
+        integer::n,i
+        h = x_array(2)-x_array(1)
+        n = size(x_array)
+        numerov_whole_interval_schrodinger_right_to_left(n) = y_right_most
+        numerov_whole_interval_schrodinger_right_to_left(n-1) = y_second_right_most
+        energy_minus_potential_array = 2*(E - potential_array)
+        hsquared_over_twelve = h*h/12
+        do i = n-1,2,-1
+            numerov_whole_interval_schrodinger_right_to_left(i-1) = numerov_next_step_g_s_pre_calculated_s_is_zero(hsquared_over_twelve,numerov_whole_interval_schrodinger_right_to_left(i),numerov_whole_interval_schrodinger_right_to_left(i+1),energy_minus_potential_array(i-1),energy_minus_potential_array(i),energy_minus_potential_array(i+1))
+            !print*, numerov_whole_interval_schrodinger(i+1)
+        end do
+
+    end function numerov_whole_interval_schrodinger_right_to_left
 
 end module numerov
 
