@@ -33,18 +33,27 @@ contains
         real*16, intent(in) :: r
         integer::l
         real*16 :: V
-        l = 2
+        l = 0
         V = -1.0/r + 0.5*l*(l+1)/r**2
     end function effective_hydrogen_potential
 
+    function centrifugal_barrier(x,l)
+        real*16,intent(in)::x
+        integer,intent(in)::l
+        real*16::centrifugal_barrier   
 
-    function create_potential_array(V_ptr,x_array)
+        centrifugal_barrier = l*(l+1)/(2*x*x)
+
+    end function centrifugal_barrier
+
+    function create_potential_array(V_ptr,x_array,l)
         procedure (pointing_func),pointer:: V_ptr
         real*16,intent(in)::x_array(:)
+        integer,intent(in)::l
         real*16::create_potential_array(size(x_array))
         integer::i
         do i=1,size(x_array)
-            create_potential_array(i) = V_ptr(x_array(i))
+            create_potential_array(i) = V_ptr(x_array(i)) + centrifugal_barrier(x_array(i),l)
         end do
     end function create_potential_array
 
@@ -71,7 +80,7 @@ contains
         procedure (pointing_func),pointer:: V_ptr
 
         h = x1-x0
-        potential_array = create_potential_array(V_ptr,x_array)
+        potential_array = create_potential_array(V_ptr,x_array,0)
         !N = (x_final-x0)/h
         psi_array = numerov_whole_interval_schrodinger_left_to_right    (x_array,psi_0,psi_1,potential_array,E)
 
@@ -168,7 +177,7 @@ contains
         !    print*, x_array(i)
         !end do
         h = x_array(2)-x_array(1)
-        potential_array = create_potential_array(V_ptr,x_array)
+        potential_array = create_potential_array(V_ptr,x_array,0)
         max_E_iter = 1000000
 
         do i = 1,max_E_iter
@@ -274,7 +283,7 @@ program run_solver
     real*16::x0,y_left,y_right,tol,y_1,h
     real*16:: x_final,Ea,Eb,eigenvalue
     real*16,allocatable::x_array(:),V_array(:)
-    integer::N,max_iter,i
+    integer::N,max_iter,i,l
     !real*8,dimension(:),allocatable :: x_array
     
     procedure (pointing_func),pointer:: V_ptr => effective_hydrogen_potential
@@ -287,13 +296,14 @@ program run_solver
     y_1 = 0.00001
     y_right = 0.0
     x0 = 0.00001
-    x_final = 20.0
-    Ea = -0.12   
+    x_final = 30.0
+    Ea = -0.6   
     Eb = 0
     tol = 0.000000000000000001
+    l = 2
     x_array = my_linspace(x0,x_final,N)
     h = x_array(2)-x_array(1)
-    V_array = create_potential_array(V_ptr,x_array)
+    V_array = create_potential_array(V_ptr,x_array,l)
     !print*, V_array(1)
     eigenvalue = find_eigenvalue_given_interval(Ea,Eb,tol,max_iter,x_array,V_array,y_left,y_1,y_right)
     V_array = find_trial_solution_normalise(x_array,V_array,eigenvalue,y_left,y_1,h)
